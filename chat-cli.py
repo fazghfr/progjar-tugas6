@@ -49,6 +49,12 @@ class ChatClient:
             elif (command=='inbox'):
                 return self.inbox()
             
+            elif (command=='get_all_users'):
+                return self.get_all_users()
+            
+            elif (command=='get_all_groups'):
+                return self.get_all_groups()
+            
             elif (command=='create_group'):
                 groupname=j[1].strip()
                 return self.create_group(groupname)
@@ -133,6 +139,26 @@ class ChatClient:
         result = self.sendstring(string)
         if result['status']=='OK':
             return "{}" . format(json.dumps(result['messages']))
+        else:
+            return "Error, {}" . format(result['message'])
+        
+    def get_all_users(self):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string="get_all_users {} \r\n" . format(self.tokenid)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            return "{}" . format(json.dumps(result['users']))
+        else:
+            return "Error, {}" . format(result['message'])
+        
+    def get_all_groups(self):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string="get_all_groups {} \r\n" . format(self.tokenid)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            return "{}" . format(json.dumps(result['groups']))
         else:
             return "Error, {}" . format(result['message'])
         

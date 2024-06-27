@@ -13,6 +13,8 @@ The following functions are implemented in the `Chat` class:
 3. `autentikasi_user(self, username, password)`: Authenticates the user by checking if the provided username and password match the stored user information.
 4. `get_user(self, username)`: Retrieves user information based on the provided username.
 5. `get_group(self, groupname)`: Retrieves group information based on the provided groupname.
+- get all user
+- get all group
 6. `send_message(self, sessionid, username_from, username_dest, message)`: Sends a message from one user to another user.
 7. `create_group(self, sessionid, username, groupname)`: Creates a new group with the provided groupname and adds the creator as a member.
 8. `join_group(self, sessionid, username, groupname)`: Adds a user to an existing group.
@@ -34,6 +36,7 @@ class Chat:
 
 		# initialize users
 		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {}, 'outgoing': {}, 'group': []}
+		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'group': []}
 		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'group': ['group1']}
 		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'group': ['group1']}
 
@@ -60,6 +63,17 @@ class Chat:
 				usernamefrom = self.sessions[sessionid]['username']
 				logging.warning("SEND: session {} send message from {} to {}" . format(sessionid, usernamefrom,usernameto))
 				return self.send_message(sessionid,usernamefrom,usernameto,message)
+			
+			elif (command=='get_all_users'):
+				sessionid = j[1].strip()
+				logging.warning("GET ALL USERS: {}" . format(sessionid))
+				return self.get_all_users(sessionid)
+			
+			elif (command=='get_all_groups'):
+				sessionid = j[1].strip()
+				logging.warning("GET ALL GROUPS: {}" . format(sessionid))
+				return self.get_all_groups(sessionid)
+			
 			elif (command=='inbox'):
 				sessionid = j[1].strip()
 				username = self.sessions[sessionid]['username']
@@ -137,6 +151,22 @@ class Chat:
 		if (username not in self.users):
 			return False
 		return self.users[username]
+	
+	def get_all_users(self, sessionid):
+		if (sessionid not in self.sessions):
+			return {'status': 'ERROR', 'message': 'Session Tidak Ditemukan'}
+		# make sure that this session belongs to dev
+		if (self.sessions[sessionid]['username'] != 'dev'):
+			return {'status': 'ERROR', 'message': 'Forbidden Access'}
+		return {'status': 'OK', 'users': self.users}
+	
+	def get_all_groups(self, sessionid):
+		if (sessionid not in self.sessions):
+			return {'status': 'ERROR', 'message': 'Session Tidak Ditemukan'}
+		# make sure that this session belongs to dev
+		if (self.sessions[sessionid]['username'] != 'dev'):
+			return {'status': 'ERROR', 'message': 'Forbidden Access'}
+		return {'status': 'OK', 'groups': self.groups}
 	
 	def get_group(self,groupname):
 		if (groupname not in self.groups):
