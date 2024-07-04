@@ -5,8 +5,8 @@ import json
 # i want to use this ChatClient class in other python file, how?
 
 
-TARGET_IP = "127.0.0.1"
-TARGET_PORT = 1112
+TARGET_IP = "172.18.0.4"
+TARGET_PORT = 1111
 
 '''
 implemented function:
@@ -89,7 +89,7 @@ class ChatClient:
                 groupname=j[1].strip()
                 return self.delete_group(groupname)
             
-            elif (command=='send_message_group'):
+            elif (command=='send_group'):
                 groupname=j[1].strip()
                 message=""
                 for w in j[2:]:
@@ -126,6 +126,11 @@ class ChatClient:
             # self.sock.close()
             # self.reconnect()
             return { 'status' : 'ERROR', 'message' : 'Gagal'}
+    
+    # TODO
+    # implement this, refer to Tugas 4 code
+    def send_file(self, filename):
+        return False    
     def login(self,username,password):
         string="auth {} {} \r\n" . format(username,password)
         result = self.sendstring(string)
@@ -152,8 +157,14 @@ class ChatClient:
         string="send {} {} {} \r\n" . format(self.tokenid,usernameto,message)
         print(string)
         result = self.sendstring(string)
-        if result['status']=='OK':
+
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "message sent to {}" . format(usernameto)
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
     def inbox(self):
@@ -197,52 +208,94 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def join_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="join_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
-        if result['status']=='OK':
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "group {} joined : groups {}" . format(groupname)
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
         
     def leave_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="leave_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
-        if result['status']=='OK':
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "group {} left : groups {}" . format(groupname)
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
         
     def delete_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="delete_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
-        if result['status']=='OK':
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "group {} deleted : groups {}" . format(groupname)
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
         
     def send_message_group(self, groupname, message):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="send_group {} {} {} \r\n" . format(self.tokenid, groupname, message)
+        print(string)
         result = self.sendstring(string)
-        if result['status']=='OK':
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "message sent to group {}" . format(groupname)
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
         
     def inbox_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="inbox_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
-        if result['status']=='OK':
+
+        if type(result) != dict and not self.is_server:
+            # convert to dict
+            result = json.loads(result)
+        if result['status']=='OK' and not self.is_server:
             return "{}" . format(json.dumps(result['messages']))
+        elif self.is_server:
+            return "{}" . format(json.dumps(result))
         else:
             return "Error, {}" . format(result['message'])
         
