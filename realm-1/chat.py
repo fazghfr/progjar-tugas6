@@ -102,7 +102,10 @@ class Chat:
 			
 			elif (command=='join_group'):
 				sessionid = j[1].strip()
-				username = self.sessions[sessionid]['username']
+				if "server" not in sessionid:
+					username = self.sessions[sessionid]['username']
+				else :
+					username = sessionid.split('=')[1]
 				groupname = j[2].strip()
 				logging.warning("JOIN GROUP: {}" . format(groupname))
 				return self.join_group(sessionid,username,groupname)
@@ -138,7 +141,10 @@ class Chat:
 			
 			elif (command=='inbox_group'):
 				sessionid = j[1].strip()
-				username = self.sessions[sessionid]['username']
+				if "server" not in sessionid:
+					username = self.sessions[sessionid]['username']
+				else :
+					username = sessionid.split('=')[1]
 				groupname = j[2].strip()
 				logging.warning("INBOX GROUP: {}" . format(groupname))
 				return self.get_inbox_group(sessionid,username,groupname)
@@ -310,9 +316,11 @@ class Chat:
 		return {'status': 'OK', 'message': 'Group Created'}
 	
 	def join_group(self,sessionid,username,groupname):
-		if (sessionid not in self.sessions):
+		if (sessionid not in self.sessions and 'server' not in sessionid):
 			return {'status': 'ERROR', 'message': 'Session Tidak Ditemukan'}
 		
+		if 'server' in sessionid:
+			s_fr = username
 		s_gr = self.get_group(groupname)
 
 		if s_gr==False and 'server' not in sessionid:
@@ -472,33 +480,71 @@ class Chat:
 			return {'status': 'OK', 'message': 'Message Sent to group'}
 	
 	def get_inbox_group(self,sessionId,username,groupname):
-		if sessionId not in self.sessions:
+		if sessionId not in self.sessions and 'server' not in sessionId:
 			return {'status': 'ERROR', 'message': 'Session Tidak Ditemukan'}
 
-		if groupname not in self.groups:
-			return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
+		if 'server' in sessionId:
+			s_fr = username
+
+		else :
+			s_fr = self.get_user(username)
+			if s_fr==False:
+				return {'status': 'ERROR', 'message': 'User Tidak Ada'}
+		g_fr = self.get_group(groupname)
+
+		if g_fr==False and 'server' not in sessionId:
+			for realm in self.known_realms:
+				# as realm is a tuple, index 0 is ip and index 1 is port
+				# check if the realm is the same as the current realm
+				if (realm[0] == self.realm['ip'] and realm[1] == self.realm['port']):
+					continue
+
+				# remove the last two characters of the message
+				string="inbox_group {}\r\n" . format(groupname)
+
+
+				json_for_communicator = {'status': 'NAV',
+						'ip': realm[0], 'port': realm[1], 
+						'username_fr': username}
+
+				# give a sign to server to handle
+				return json_for_communicator
 
 		if username not in self.groups[groupname]['users']:
 			return {'status': 'ERROR', 'message': 'User Tidak Ada di Group'}
 		
-		s_fr = self.get_group(groupname)
-		incoming = s_fr['incoming']
+		incoming = g_fr['incoming']
 		msgs = {}
 		for users in incoming:
 			msgs[users] = []
+			temp_queue = Queue()
 			while not incoming[users].empty():
-				msgs[users].append(s_fr['incoming'][users].get_nowait()) 
+				msg = g_fr['incoming'][users].get_nowait()
+				msgs[users].append(msg)
+				temp_queue.put(msg)
+
+			g_fr['incoming'][users] = temp_queue 
 
 		return {'status': 'OK', 'messages': msgs}
 
+	# TODO
+	# fix when calling inbox the message is popped
+	# potential fix is to create a copy of it and pop the copy, not the original 
+	# done, but need to be tested
 	def get_inbox(self,username):
 		s_fr = self.get_user(username)
 		incoming = s_fr['incoming']
 		msgs={}
 		for users in incoming:
 			msgs[users]=[]
+			temp_queue = Queue()
 			while not incoming[users].empty():
-				msgs[users].append(s_fr['incoming'][users].get_nowait())
+				msg = s_fr['incoming'][users].get_nowait()
+				msgs[users].append(msg)
+				temp_queue.put(msg)
+
+			s_fr['incoming'][users] = temp_queue
+
 			
 		return {'status': 'OK', 'messages': msgs}
 
@@ -522,6 +568,22 @@ if __name__=="__main__":
 	print(j.get_inbox('messi'))
 	print("isi mailbox dari henderson")
 	print(j.get_inbox('henderson'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

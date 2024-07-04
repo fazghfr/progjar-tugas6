@@ -126,6 +126,11 @@ class ChatClient:
             # self.sock.close()
             # self.reconnect()
             return { 'status' : 'ERROR', 'message' : 'Gagal'}
+    
+    # TODO
+    # implement this, refer to Tugas 4 code
+    def send_file(self, filename):
+        return False    
     def login(self,username,password):
         string="auth {} {} \r\n" . format(username,password)
         result = self.sendstring(string)
@@ -199,6 +204,9 @@ class ChatClient:
     def join_group(self, groupname):
         if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="join_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
         if result['status']=='OK':

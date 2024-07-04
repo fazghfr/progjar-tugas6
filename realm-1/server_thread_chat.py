@@ -41,20 +41,23 @@ class ProcessTheClient(threading.Thread):
 						rcv = self.construct_string(rcv[0], rcv[2:])
 
 						print("SINI AFTER : ", rcv)
-						hasil = server_as_client.proses(rcv)
-						print("hasil ",hasil)
+						resp = json.dumps(server_as_client.proses(rcv))
+						resp = resp + "\r\n\r\n"
+						self.connection.sendall(resp.encode())
+						# print("hasil ",hasil)
 
-						if "message sent" in hasil:
-							server_as_client.proses(self.construct_string("pop_temp", real_username))
-							resp = {'status': 'OK', 'message': 'Okay'}
-							hasil = json.dumps(resp)
+						# if hasil['status'] == 'OK':
+						# 	resp = {'status': 'OK', 'message': 'Okay'}
+						# 	hasil = json.dumps(resp)
 
-						elif "error" in hasil.lower():
-							resp = {'status': 'ERROR', 'message': 'Error'}
-							hasil = json.dumps(resp)
+						# elif "error" in hasil.lower():
+						# 	resp = {'status': 'ERROR', 'message': 'Error'}
+						# 	hasil = json.dumps(resp)
 
 						# close the connection
 						server_as_client.sock.close()
+						rcv = ""
+						continue
 					
 					hasil = hasil + "\r\n\r\n"
 					
