@@ -13,6 +13,9 @@ REALM_IP = '172.18.0.4'
 REALM_PORT = 1111
 chatserver = Chat(REALM_IP, REALM_PORT)
 
+from file_protocol import FileProtocol
+fp = FileProtocol()
+
 class ProcessTheClient(threading.Thread):
 	def __init__(self, connection, address):
 		self.connection = connection
@@ -22,16 +25,22 @@ class ProcessTheClient(threading.Thread):
 	def run(self):
 		rcv=""
 		while True:
-			data = self.connection.recv(32)
+			data = self.connection.recv(512)
 			if data:
 				d = data.decode()
 				rcv=rcv+d
 				if rcv[-2:]=='\r\n':
 					#end of command, proses string
 					logging.warning("data dari client: {}" . format(rcv))
-					hasil = json.dumps(chatserver.proses(rcv))
+
+					# if first word of rcv is data
+					if rcv.split(" ")[0].lower() == "data" or rcv.split(" ")[0].lower() == "get":
+						hasil = fp.proses_string(rcv)
+					else:
+						hasil = json.dumps(chatserver.proses(rcv))			
+							
+					
 					hasil_dict = json.loads(hasil)
-					print("hasil_dict",hasil_dict)
 					
 					if hasil_dict['status'] == 'NAV':
 						server_as_client = ChatClient(hasil_dict['ip'], hasil_dict['port'], is_server=True, real_username=hasil_dict['username_fr'])

@@ -1,9 +1,12 @@
+from glob import glob
 import sys
 import os
 import json
 import uuid
 import logging
 from queue import  Queue
+from file_protocol import FileProtocol
+
 
 '''
 The following functions are implemented in the `Chat` class:
@@ -42,12 +45,12 @@ class Chat:
 
 
 		# initialize users
-		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {}, 'outgoing': {}, 'group': [], 'realm': self.realm}
-		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'group': []}
-		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'group': ['group1'], 'realm': self.realm}
-		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'group': ['group1'], 'realm': self.realm}
+		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {},'outgoing': {}, 'incoming_file':{}, 'group': [], 'realm': self.realm}
+		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
+		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
+		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
 
-		self.groups['group1'] = { 'nama': 'grup inggris', 'incoming': {}, 'outgoing': {}, 'users': ['henderson','lineker'], 'realm': self.realm}
+		self.groups['group1'] = { 'nama': 'grup inggris', 'incoming': {}, 'outgoing': {}, 'incoming_file' : {}, 'users': ['henderson','lineker'], 'realm': self.realm}
 	def proses(self,data):
 		is_different_realm = False
 		j=data.split(" ")
@@ -149,6 +152,27 @@ class Chat:
 				logging.warning("INBOX GROUP: {}" . format(groupname))
 				return self.get_inbox_group(sessionid,username,groupname)
 			
+			elif (command=='save_file'):
+				filename = j[1].strip()
+				logging.warning("SAVE FILE: {}" . format(filename))
+				return self.save_file_private(filename)
+			
+			elif (command=='save_file_group'):
+				filename = j[1].strip()
+				logging.warning("SAVE FILE: {}" . format(filename))
+				return self.save_file_group(filename)
+			
+			elif (command=='inbox_file'):
+				sessionid = j[1].strip()
+				username = self.sessions[sessionid]['username']
+				logging.warning("INBOX FILE: {}" . format(username))
+				return self.get_inbox_file(username)
+			
+			elif (command=='inbox_file_group'):
+				sessionid = j[1].strip()
+				username = self.sessions[sessionid]['username']
+				logging.warning("INBOX FILE GROUP: {}" . format(username))
+				return self.get_inbox_file_group(username)
 
 			else:
 				return {'status': 'ERROR', 'message': '**Protocol Tidak Benar'}
@@ -173,8 +197,78 @@ class Chat:
 
 		del self.temp_outgoing[username]
 		return {'status': 'OK', 'message': '*Popped temp'}
-			
+	
+	def save_file_private(self, filename):
+		# get current wd
+		wd = os.getcwd()
 		
+
+		# find file with filename listdir
+		filelist = os.listdir()
+		if filename not in filelist:
+			os.chdir(wd)
+			return {'status': 'ERROR', 'message': 'File not found'}
+		
+		# format user_usernameto_from_tokenfrom_filename
+		usernameto = filename.split('_')[1]
+		print("usernameto ", usernameto)
+		usernamefrom = self.sessions[filename.split('_')[3]]['username']
+		print("usernamefrom ", usernamefrom)
+		the_filename = filename.split('_')[4]
+		print("the_filename ", the_filename)
+
+		user_obj = self.get_user(usernameto)
+		if user_obj == False:
+			os.chdir(wd)
+			return {'status': 'ERROR', 'message': 'User not found'}
+		
+		# rename the file
+		os.rename(filename, f"user_{usernameto}_from_{usernamefrom}_{the_filename}")
+		
+		file_obj = { 'filename': the_filename, 'from': usernamefrom, 'to': usernameto}
+		inqueue_receiver = user_obj['incoming_file']
+		try:
+			inqueue_receiver[the_filename].put(file_obj)
+		except KeyError:
+			inqueue_receiver[the_filename]=Queue()
+			inqueue_receiver[the_filename].put(file_obj)
+
+		os.chdir(wd)
+		return {'status': 'OK', 'message': 'File saved'}
+	
+	def save_file_group(self, filename):
+		wd = os.getcwd()
+
+		print("wd ", wd)
+
+		# find file with filename listdir
+		filelist = os.listdir()
+		print("filelist ", filelist)
+		if filename not in filelist:
+			os.chdir(wd)
+			return {'status': 'ERROR', 'message': 'File not found'}
+		
+		# format group_groupname_from_tokenfrom_filename
+		groupname = filename.split('_')[1]
+		usernamefrom = self.sessions[filename.split('_')[3]]['username']
+		the_filename = filename.split('_')[4]
+
+		group_obj = self.get_group(groupname)
+		if group_obj == False:
+			os.chdir(wd)
+			return {'status': 'ERROR', 'message': 'Group not found'}
+		
+		os.rename(filename, f"group_{groupname}_from_{usernamefrom}_{the_filename}")
+		file_obj = { 'filename': the_filename, 'from': usernamefrom, 'to': groupname}
+		inqueue_receiver = group_obj['incoming_file']
+		try:
+			inqueue_receiver[the_filename].put(file_obj)
+		except KeyError:
+			inqueue_receiver[the_filename]=Queue()
+			inqueue_receiver[the_filename].put(file_obj)
+		os.chdir(wd)
+		return {'status': 'OK', 'message': 'File saved'}
+
 		
 		
 		
@@ -547,6 +641,38 @@ class Chat:
 
 			
 		return {'status': 'OK', 'messages': msgs}
+	
+	def get_inbox_file(self,username):
+		s_fr = self.get_user(username)
+		incoming = s_fr['incoming_file']
+		files={}
+		for users in incoming:
+			files[users]=[]
+			temp_queue = Queue()
+			while not incoming[users].empty():
+				file = s_fr['incoming_file'][users].get_nowait()
+				files[users].append(file)
+				temp_queue.put(file)
+
+			s_fr['incoming_file'][users] = temp_queue
+
+		return {'status': 'OK', 'files': files}
+	
+	def get_inbox_file_group(self,username):
+		s_fr = self.get_user(username)
+		incoming = s_fr['incoming_file']
+		files={}
+		for groups in incoming:
+			files[groups]=[]
+			temp_queue = Queue()
+			while not incoming[groups].empty():
+				file = s_fr['incoming_file'][groups].get_nowait()
+				files[groups].append(file)
+				temp_queue.put(file)
+
+			s_fr['incoming_file'][groups] = temp_queue
+
+		return {'status': 'OK', 'files': files}
 
 
 if __name__=="__main__":

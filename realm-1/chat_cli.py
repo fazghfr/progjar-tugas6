@@ -1,6 +1,7 @@
 import socket
 import os
 import json
+import base64
 
 # i want to use this ChatClient class in other python file, how?
 
@@ -100,6 +101,31 @@ class ChatClient:
                 groupname=j[1].strip()
                 return self.inbox_group(groupname)
             
+            elif (command=='inbox_file'):
+                return self.inbox_file()
+            
+            elif (command=='inbox_file_group'):
+                groupname=j[1].strip()
+                return self.inbox_file_group(groupname)
+            
+            # file unimplemented
+            # TODO
+            # implement this send file in client 
+            elif (command=='send_file'):
+                usernameto=j[1].strip()
+                filename=j[2].strip()
+                return self.remote_upload(usernameto, filename)
+            
+            elif (command=='send_file_group'):
+                groupname=j[1].strip()
+                filename=j[2].strip()
+                return self.remote_upload_group(groupname,filename)
+            
+            # notes: ngambil dari group or inbox sendiri
+            elif (command=='get_file'):
+                filename=j[1].strip()
+                return self.remote_get(filename)
+            
             elif(command=='exit' or command=='quit'):
                 self.sock.close()
                 return True
@@ -126,11 +152,76 @@ class ChatClient:
             # self.sock.close()
             # self.reconnect()
             return { 'status' : 'ERROR', 'message' : 'Gagal'}
-    
-    # TODO
-    # implement this, refer to Tugas 4 code
-    def send_file(self, filename):
-        return False    
+        
+    def remote_upload(self, username, filename=""):
+        try:
+            if (self.tokenid=="" and not self.is_server):
+                return { 'status' : 'ERROR', 'message' : 'Not authorized'}
+
+            token = self.tokenid
+            fp = open(filename,'rb') 
+            isifile = base64.b64encode(fp.read())
+            # return False
+            fp.close()
+
+            chunk_data_size = 12
+            isifile = [isifile[i:i+chunk_data_size] for i in range(0,len(isifile),chunk_data_size)]
+            filename_fix = username+"=u="+filename+"=u="+token
+            for i in range(len(isifile)):
+                command_str=f"DATA {filename_fix} {token} {isifile[i]}\r\n"
+                print(command_str)
+                hasil = self.sendstring(command_str)
+                if (hasil['status']=='OK'):
+                    print("Data chunk {} uploaded" . format(i))
+                else:
+                    print("Gagal")
+                    return { 'status' : 'ERROR', 'message' : 'Gagal mengirimkan file'}
+                
+            print("File uploaded")
+            filename_fix = "user_"+username+"_from_"+token+"_"+filename
+            command = f"save_file {filename_fix}\r\n"
+            hasil = self.sendstring(command)
+            if (hasil['status']=='OK'):
+                return { 'status' : 'OK', 'message' : 'File uploaded'}
+            else:
+                return { 'status' : 'ERROR', 'message' : 'Gagal diakhir step saving file'}
+        except:
+            return { 'status' : 'ERROR', 'message' : 'Gagal saat uploading file'}
+        
+    def remote_upload_group(self, groupname, filename=""):
+        try:
+            if (self.tokenid=="" and not self.is_server):
+                return { 'status' : 'ERROR', 'message' : 'Not authorized'}
+            fp = open(filename,'rb') 
+            isifile = base64.b64encode(fp.read())
+            # print(isifile)
+            # return False
+            fp.close()
+
+            chunk_data_size = 32
+            isifile = [isifile[i:i+chunk_data_size] for i in range(0,len(isifile),chunk_data_size)]
+
+            for i in range(len(isifile)):
+                filename_fix = groupname+"=g="+filename+"=g="+self.tokenid
+                command_str=f"DATA {filename_fix} {i} {isifile[i]}\r\n"
+                hasil = self.sendstring(command_str)
+                if (hasil['status']=='OK'):
+                    print("Data chunk {} uploaded" . format(i))
+                else:
+                    print("Gagal")
+                    return { 'status' : 'ERROR', 'message' : 'Gagal mengirimkan file'}
+                
+            print("File uploaded")
+            filename_fix = "group_"+groupname+"_from_"+self.tokenid+"_"+filename
+            command = f"save_file_group {filename_fix}\r\n"
+            hasil = self.sendstring(command)
+            if (hasil['status']=='OK'):
+                return { 'status' : 'OK', 'message' : 'File uploaded'}
+            else:
+                return { 'status' : 'ERROR', 'message' : 'Gagal saat uploading file'}
+        except:
+            return { 'status' : 'ERROR', 'message' : 'Gagal saat uploading file'}
+      
     def login(self,username,password):
         string="auth {} {} \r\n" . format(username,password)
         result = self.sendstring(string)
@@ -177,6 +268,25 @@ class ChatClient:
         else:
             return "Error, {}" . format(result['message'])
         
+    def inbox_file(self):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string="inbox_file {} \r\n" . format(self.tokenid)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            return "{}" . format(json.dumps(result['files']))
+        else:
+            return "Error, {}" . format(result['message'])
+        
+    def inbox_file_group(self, groupname):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string="inbox_file_group {} {} \r\n" . format(self.tokenid, groupname)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            return "{}" . format(json.dumps(result['files']))
+        else:
+            return "Error, {}" . format(result['message'])
     def get_all_users(self):
         if (self.tokenid==""):
             return "Error, not authorized"
