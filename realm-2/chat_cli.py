@@ -197,7 +197,7 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def join_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
         string="join_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
@@ -207,8 +207,11 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def leave_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="leave_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
         if result['status']=='OK':
@@ -217,8 +220,11 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def delete_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="delete_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
         if result['status']=='OK':
@@ -241,8 +247,11 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def inbox_group(self, groupname):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="inbox_group {} {} \r\n" . format(self.tokenid, groupname)
         result = self.sendstring(string)
         if result['status']=='OK':
