@@ -2,8 +2,11 @@ import socket
 import os
 import json
 
+# i want to use this ChatClient class in other python file, how?
+
+
 TARGET_IP = "127.0.0.1"
-TARGET_PORT = 8889
+TARGET_PORT = 1112
 
 '''
 implemented function:
@@ -22,15 +25,30 @@ implemented function:
 
 
 '''
+glob_data = "{'status': 'OK', 'message': 'Message Sent'}"
 
 class ChatClient:
-    def __init__(self):
+    def __init__(self, target_ip=TARGET_IP, target_port=TARGET_PORT, is_server=False, real_username=""):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_address = (TARGET_IP,TARGET_PORT)
+        self.server_address = (target_ip,target_port)
+        self.sock.connect(self.server_address)
+        self.data = glob_data
+        
+        self.is_server = is_server
+        self.real_username_fr = ""
+
+        if self.is_server:
+            self.real_username_fr = real_username
+        self.tokenid=""
+
+    def reconnect(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(self.server_address)
         self.tokenid=""
+        return True
     def proses(self,cmdline):
         j=cmdline.split(" ")
+        print("j ",j)
         try:
             command=j[0].strip()
             if (command=='auth'):
@@ -71,7 +89,7 @@ class ChatClient:
                 groupname=j[1].strip()
                 return self.delete_group(groupname)
             
-            elif (command=='send_message_group'):
+            elif (command=='send_group'):
                 groupname=j[1].strip()
                 message=""
                 for w in j[2:]:
@@ -97,13 +115,16 @@ class ChatClient:
             while True:
                 data = self.sock.recv(64)
                 print("diterima dari server",data)
-                if (data):
+                if (data):  
+                    glob_data = data
                     receivemsg = "{}{}" . format(receivemsg,data.decode())  #data harus didecode agar dapat di operasikan dalam bentuk string
                     if receivemsg[-4:]=='\r\n\r\n':
                         print("end of string")
                         return json.loads(receivemsg)
         except:
-            self.sock.close()
+            print("ada error")
+            # self.sock.close()
+            # self.reconnect()
             return { 'status' : 'ERROR', 'message' : 'Gagal'}
     def login(self,username,password):
         string="auth {} {} \r\n" . format(username,password)
@@ -123,8 +144,11 @@ class ChatClient:
         else:
             return "Error, {}" . format(result['message'])
     def sendmessage(self,usernameto="xxx",message="xxx"):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="send {} {} {} \r\n" . format(self.tokenid,usernameto,message)
         print(string)
         result = self.sendstring(string)
@@ -203,9 +227,13 @@ class ChatClient:
             return "Error, {}" . format(result['message'])
         
     def send_message_group(self, groupname, message):
-        if (self.tokenid==""):
+        if (self.tokenid=="" and not self.is_server):
             return "Error, not authorized"
+        
+        if self.tokenid=="":
+            self.tokenid="server="+self.real_username_fr+"="
         string="send_group {} {} {} \r\n" . format(self.tokenid, groupname, message)
+        print(string)
         result = self.sendstring(string)
         if result['status']=='OK':
             return "message sent to group {}" . format(groupname)

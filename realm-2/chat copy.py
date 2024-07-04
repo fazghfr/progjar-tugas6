@@ -28,21 +28,25 @@ TODO
 - implement multirealms
 '''
 
+
 class Chat:
-	def __init__(self):
+	def __init__(self, REALM_IP, REALM_PORT):
 		self.sessions={}
+		self.sessions['server'] = {'username': 'server', 'userdetail': {}} # special session for server
 		self.users = {}
 		self.groups = {}
+		self.realm = { 'ip': REALM_IP, 'port': REALM_PORT}
+		self.known_realms = [('127.0.0.1', 1111)]
+
+		self.temp_outgoing={}
+
 
 		# initialize users
-		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {}, 'outgoing': {}, 'group': []}
-		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'group': []}
-		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'group': ['group1']}
-		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'group': ['group1']}
-
-		self.groups['group1'] = { 'nama': 'grup inggris', 'incoming': {}, 'outgoing': {}, 'users': ['henderson','lineker']}
+		self.users['mudrik']={ 'nama': 'mudrik Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {}, 'outgoing': {}, 'group': [], 'realm': self.realm}
 	def proses(self,data):
+		is_different_realm = False
 		j=data.split(" ")
+		print("splitted data ",j)
 		try:
 			command=j[0].strip()
 			if (command=='auth'):
@@ -60,7 +64,11 @@ class Chat:
 				message=""
 				for w in j[3:]:
 					message="{} {}" . format(message,w)
-				usernamefrom = self.sessions[sessionid]['username']
+
+				if "server" not in sessionid:
+					usernamefrom = self.sessions[sessionid]['username']
+				else :
+					usernamefrom = sessionid.split('=')[1]
 				logging.warning("SEND: session {} send message from {} to {}" . format(sessionid, usernamefrom,usernameto))
 				return self.send_message(sessionid,usernamefrom,usernameto,message)
 			
@@ -132,6 +140,28 @@ class Chat:
 			return { 'status': 'ERROR', 'message' : 'Informasi tidak ditemukan'}
 		except IndexError:
 			return {'status': 'ERROR', 'message': '--Protocol Tidak Benar'}
+		
+	def pop_temp(self, username):
+		message = self.temp_incoming[username]
+		user_obj = self.get_user(message['msg_from'])
+		message['msg_from'] = user_obj['nama']
+
+		final_msg = message
+
+		outqueue_sender = user_obj['outgoing']
+		try:	
+			outqueue_sender[username].put(final_msg)
+		except KeyError:
+			outqueue_sender[username]=Queue()
+			outqueue_sender[username].put(final_msg)
+
+		del self.temp_outgoing[username]
+		return {'status': 'OK', 'message': '*Popped temp'}
+			
+		
+		
+		
+		
 	def autentikasi_user(self,username,password):
 		if (username not in self.users):
 			return { 'status': 'ERROR', 'message': 'User Tidak Ada' }
@@ -140,6 +170,16 @@ class Chat:
 		tokenid = str(uuid.uuid4()) 
 		self.sessions[tokenid]={ 'username': username, 'userdetail':self.users[username]}
 		return { 'status': 'OK', 'tokenid': tokenid }
+	
+	# realm related functions
+	def check_realm(self, obj):
+		if (obj['realm']['ip'] != self.realm['ip'] or obj['realm']['port'] != self.realm['port']):
+			return False
+		return True
+	
+	# called by the server to add realm
+	def add_realm(self, ip, port):
+		self.known_realms.append({'ip': ip, 'port': port})
 	
 	def logout_user(self,sessionid):
 		if (sessionid not in self.sessions):
@@ -173,28 +213,73 @@ class Chat:
 			return False
 		return self.groups[groupname]
 	def send_message(self,sessionid,username_from,username_dest,message):
-		if (sessionid not in self.sessions):
+		print("session id ", sessionid)
+		if (sessionid not in self.sessions and 'server' not in sessionid):
 			return {'status': 'ERROR', 'message': 'Session Tidak Ditemukan'}
-		s_fr = self.get_user(username_from)
+		
+		if 'server' in sessionid:
+			s_fr = username_from # just the username
+		else:	
+			s_fr = self.get_user(username_from)
+			if s_fr==False:
+				return {'status': 'ERROR', 'message': 'User Tidak Ditemukan'}
+			
+		self.temp_outgoing[username_from] = { 'msg_from': username_from, 'msg_to': username_dest, 'msg': message }
 		s_to = self.get_user(username_dest)
 		
-		if (s_fr==False or s_to==False):
+		if ((s_to==False) and 'server' not in sessionid):
+			# try to find the user in another realm
+			
+			for realm in self.known_realms:
+				# as realm is a tuple, index 0 is ip and index 1 is port
+				# check if the realm is the same as the current realm
+				if (realm[0] == self.realm['ip'] and realm[1] == self.realm['port']):
+					continue
+
+				# remove the last two characters of the message
+				message = message[:-2]
+				string="send {} {} \r\n" . format(username_dest,message)
+
+				json_for_communicator = {'status': 'NAV',
+						'ip': realm[0], 'port': realm[1], 
+						'username_fr': username_from}
+
+
+				# give a sign to server to handle
+				return json_for_communicator
+			
+		elif(s_to==False):
 			return {'status': 'ERROR', 'message': 'User Tidak Ditemukan'}
 
-		message = { 'msg_from': s_fr['nama'], 'msg_to': s_to['nama'], 'msg': message }
-		outqueue_sender = s_fr['outgoing']
-		inqueue_receiver = s_to['incoming']
-		try:	
-			outqueue_sender[username_from].put(message)
-		except KeyError:
-			outqueue_sender[username_from]=Queue()
-			outqueue_sender[username_from].put(message)
-		try:
-			inqueue_receiver[username_from].put(message)
-		except KeyError:
-			inqueue_receiver[username_from]=Queue()
-			inqueue_receiver[username_from].put(message)
-		return {'status': 'OK', 'message': 'Message Sent'}
+		if "server" not in sessionid:
+			message = { 'msg_from': s_fr['nama'], 'msg_to': s_to['nama'], 'msg': message }
+			outqueue_sender = s_fr['outgoing']
+			inqueue_receiver = s_to['incoming']
+			try:	
+				outqueue_sender[username_from].put(message)
+			except KeyError:
+				outqueue_sender[username_from]=Queue()
+				outqueue_sender[username_from].put(message)
+			try:
+				inqueue_receiver[username_from].put(message)
+			except KeyError:
+				inqueue_receiver[username_from]=Queue()
+				inqueue_receiver[username_from].put(message)
+
+			del self.temp_outgoing[username_from]
+			return {'status': 'OK', 'message': 'Message Sent'}
+		
+		else : 
+			# mengasumsikan temp_incoming insertion implemented (belum)
+			message = { 'msg_from': s_fr, 'msg_to': s_to['nama'], 'msg': message }
+			inqueue_receiver = s_to['incoming']
+			try:
+				inqueue_receiver[username_from].put(message)
+			except KeyError:
+				inqueue_receiver[username_from]=Queue()
+				inqueue_receiver[username_from].put(message)
+			return {'status': 'OK', 'message': 'Message Sent'}
+	
 	
 	def create_group(self,sessionid,username,groupname):
 		if (sessionid not in self.sessions):
