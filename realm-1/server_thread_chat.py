@@ -9,12 +9,9 @@ from chat import Chat
 from chat_cli import ChatClient
 
 
-REALM_IP = '172.18.0.4'
+REALM_IP = '172.18.0.2'
 REALM_PORT = 1111
 chatserver = Chat(REALM_IP, REALM_PORT)
-
-from file_protocol import FileProtocol
-fp = FileProtocol()
 
 class ProcessTheClient(threading.Thread):
 	def __init__(self, connection, address):
@@ -33,11 +30,7 @@ class ProcessTheClient(threading.Thread):
 					#end of command, proses string
 					logging.warning("data dari client: {}" . format(rcv))
 
-					# if first word of rcv is data
-					if rcv.split(" ")[0].lower() == "data" or rcv.split(" ")[0].lower() == "get":
-						hasil = fp.proses_string(rcv)
-					else:
-						hasil = json.dumps(chatserver.proses(rcv))			
+					hasil = json.dumps(chatserver.proses(rcv))			
 							
 					
 					hasil_dict = json.loads(hasil)

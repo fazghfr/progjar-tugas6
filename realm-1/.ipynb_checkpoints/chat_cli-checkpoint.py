@@ -1,11 +1,12 @@
 import socket
 import os
 import json
+import base64
 
 # i want to use this ChatClient class in other python file, how?
 
 
-TARGET_IP = "172.18.0.4"
+TARGET_IP = "172.18.0.2"
 TARGET_PORT = 1111
 
 '''
@@ -126,11 +127,7 @@ class ChatClient:
             # self.sock.close()
             # self.reconnect()
             return { 'status' : 'ERROR', 'message' : 'Gagal'}
-    
-    # TODO
-    # implement this, refer to Tugas 4 code
-    def send_file(self, filename):
-        return False    
+      
     def login(self,username,password):
         string="auth {} {} \r\n" . format(username,password)
         result = self.sendstring(string)
@@ -176,7 +173,6 @@ class ChatClient:
             return "{}" . format(json.dumps(result['messages']))
         else:
             return "Error, {}" . format(result['message'])
-        
     def get_all_users(self):
         if (self.tokenid==""):
             return "Error, not authorized"
