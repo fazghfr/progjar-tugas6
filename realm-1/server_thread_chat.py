@@ -9,7 +9,7 @@ from chat import Chat
 from chat_cli import ChatClient
 
 
-REALM_IP = '172.18.0.4'
+REALM_IP = '172.18.0.2'
 REALM_PORT = 1111
 chatserver = Chat(REALM_IP, REALM_PORT)
 
@@ -22,16 +22,18 @@ class ProcessTheClient(threading.Thread):
 	def run(self):
 		rcv=""
 		while True:
-			data = self.connection.recv(32)
+			data = self.connection.recv(512)
 			if data:
 				d = data.decode()
 				rcv=rcv+d
 				if rcv[-2:]=='\r\n':
 					#end of command, proses string
 					logging.warning("data dari client: {}" . format(rcv))
-					hasil = json.dumps(chatserver.proses(rcv))
+
+					hasil = json.dumps(chatserver.proses(rcv))			
+							
+					
 					hasil_dict = json.loads(hasil)
-					print("hasil_dict",hasil_dict)
 					
 					if hasil_dict['status'] == 'NAV':
 						server_as_client = ChatClient(hasil_dict['ip'], hasil_dict['port'], is_server=True, real_username=hasil_dict['username_fr'])

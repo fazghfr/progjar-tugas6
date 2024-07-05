@@ -1,11 +1,9 @@
-from glob import glob
 import sys
 import os
 import json
 import uuid
 import logging
 from queue import  Queue
-
 
 '''
 The following functions are implemented in the `Chat` class:
@@ -38,18 +36,18 @@ class Chat:
 		self.users = {}
 		self.groups = {}
 		self.realm = { 'ip': REALM_IP, 'port': REALM_PORT}
-		self.known_realms = [('172.18.0.4', 1112)]
+		self.known_realms = [('172.18.0.3', 1112)]
 
 		self.temp_outgoing={}
 
 
 		# initialize users
-		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {},'outgoing': {}, 'incoming_file':{}, 'group': [], 'realm': self.realm}
-		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
-		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
-		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'incoming_file' : {},  'group': [], 'realm': self.realm}
+		self.users['messi']={ 'nama': 'Lionel Messi', 'negara': 'Argentina', 'password': 'surabaya', 'incoming' : {}, 'outgoing': {}, 'group': [], 'realm': self.realm}
+		self.users['dev']={ 'nama': 'dev', 'negara': 'dev', 'password': 'dev', 'incoming' : {}, 'outgoing': {}, 'group': []}
+		self.users['henderson']={ 'nama': 'Jordan Henderson', 'negara': 'Inggris', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}, 'group': ['group1'], 'realm': self.realm}
+		self.users['lineker']={ 'nama': 'Gary Lineker', 'negara': 'Inggris', 'password': 'surabaya','incoming': {}, 'outgoing':{}, 'group': ['group1'], 'realm': self.realm}
 
-		self.groups['group1'] = { 'nama': 'grup inggris', 'incoming': {}, 'outgoing': {}, 'incoming_file' : {}, 'users': ['henderson','lineker'], 'realm': self.realm}
+		self.groups['group1'] = { 'nama': 'grup inggris', 'incoming': {}, 'outgoing': {}, 'users': ['henderson','lineker'], 'realm': self.realm}
 	def proses(self,data):
 		is_different_realm = False
 		j=data.split(" ")
@@ -150,6 +148,7 @@ class Chat:
 				groupname = j[2].strip()
 				logging.warning("INBOX GROUP: {}" . format(groupname))
 				return self.get_inbox_group(sessionid,username,groupname)
+			
 
 			else:
 				return {'status': 'ERROR', 'message': '**Protocol Tidak Benar'}
@@ -174,6 +173,10 @@ class Chat:
 
 		del self.temp_outgoing[username]
 		return {'status': 'OK', 'message': '*Popped temp'}
+			
+		
+		
+		
 		
 	def autentikasi_user(self,username,password):
 		if (username not in self.users):
